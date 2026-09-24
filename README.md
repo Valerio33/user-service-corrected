@@ -10,7 +10,7 @@ CREATE DATABASE user_db;
 - сервер: `localhost:5432`;
 - база: `user_db`;
 - пользователь: `postgres`;
-- пароль: `Cool3654`.
+- пароль: `введите пароль`.
 
 
 3.  `pom.xml`:

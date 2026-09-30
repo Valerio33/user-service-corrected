@@ -1,6 +1,6 @@
 package com.aston.userservice;
 
-import com.aston.userservice.dao.UserDao;
+import com.aston.userservice.service.UserService;
 import com.aston.userservice.dao.UserDaoImpl;
 import com.aston.userservice.entity.User;
 import com.aston.userservice.exception.DaoException;
@@ -20,8 +20,8 @@ public class Main {
     public static void main(String[] args) {
         try (SessionFactory sessionFactory = HibernateUtil.buildSessionFactory();
              Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8)) {
-            UserDao userDao = new UserDaoImpl(sessionFactory);
-            runMenu(userDao, scanner);
+            UserService userService = new UserService(new UserDaoImpl(sessionFactory));
+            runMenu(userService, scanner);
         } catch (RuntimeException error) {
             logger.error("Ошибка запуска или завершения приложения", error);
             System.err.println("Проверьте доступность PostgreSQL, наличие базы user_db "
@@ -30,7 +30,7 @@ public class Main {
         }
     }
 
-    private static void runMenu(UserDao userDao, Scanner scanner) {
+    private static void runMenu(UserService userService, Scanner scanner) {
         System.out.println("Добро пожаловать в User Service!");
         while (true) {
             System.out.println("\n1 - Создать пользователя");
@@ -41,18 +41,18 @@ public class Main {
             System.out.println("0 - Выход");
             try {
                 switch (readLine(scanner, "Ваш выбор: ")) {
-                    case "1" -> createUser(userDao, scanner);
+                    case "1" -> createUser(userService, scanner);
                     case "2" -> {
-                        User user = userDao.getById(readId(scanner));
+                        User user = userService.getById(readId(scanner));
                         System.out.println(user == null ? "Пользователь не найден." : "Найден: " + user);
                     }
                     case "3" -> {
-                        List<User> users = userDao.getAll();
+                        List<User> users = userService.getAll();
                         if (users.isEmpty()) { System.out.println("Список пользователей пуст."); }
                         else { users.forEach(System.out::println); }
                     }
-                    case "4" -> updateUser(userDao, scanner);
-                    case "5" -> System.out.println(userDao.delete(readId(scanner))
+                    case "4" -> updateUser(userService, scanner);
+                    case "5" -> System.out.println(userService.delete(readId(scanner))
                             ? "Пользователь удалён." : "Пользователь не найден.");
                     case "0" -> { System.out.println("Завершение работы..."); return; }
                     default -> System.out.println("Неизвестная команда. Введите число от 0 до 5.");
@@ -68,17 +68,16 @@ public class Main {
         }
     }
 
-    private static void createUser(UserDao userDao, Scanner scanner) {
+    private static void createUser(UserService userService, Scanner scanner) {
         String name = readLine(scanner, "Введите имя: ");
         String email = readLine(scanner, "Введите email: ");
         int age = parseAge(readLine(scanner, "Введите возраст: "));
-        User user = new User(name, email, age);
-        userDao.save(user);
+        User user = userService.create(name, email, age);
         System.out.println("Пользователь создан: " + user);
     }
 
-    private static void updateUser(UserDao userDao, Scanner scanner) {
-        User user = userDao.getById(readId(scanner));
+    private static void updateUser(UserService userService, Scanner scanner) {
+        User user = userService.getById(readId(scanner));
         if (user == null) {
             System.out.println("Пользователь не найден.");
             return;
@@ -87,14 +86,12 @@ public class Main {
         String email = readLine(scanner, "Новый email (Enter — оставить '" + user.getEmail() + "'): ");
         String age = readLine(scanner, "Новый возраст (Enter — оставить " + user.getAge() + "): ");
 
-        User values = new User(
+        boolean updated = userService.update(
+                user.getId(),
                 name.isEmpty() ? user.getName() : name,
                 email.isEmpty() ? user.getEmail() : email,
                 age.isEmpty() ? user.getAge() : parseAge(age));
-        user.setName(values.getName());
-        user.setEmail(values.getEmail());
-        user.setAge(values.getAge());
-        System.out.println(userDao.update(user)
+        System.out.println(updated
                 ? "Данные пользователя обновлены." : "Пользователь уже удалён.");
     }
 
@@ -103,7 +100,7 @@ public class Main {
             long id = Long.parseLong(readLine(scanner, "Введите ID пользователя: "));
             if (id > 0) { return id; }
         } catch (NumberFormatException ignored) {
-            // Сообщение для некорректного и неположительного ID.
+            // Ниже единое сообщение для некорректного и неположительного ID.
         }
         throw new IllegalArgumentException("ID должен быть положительным целым числом.");
     }
